@@ -1,0 +1,8 @@
+drop Tau*
+drop IsoTrack*
+drop SoftActivity*
+drop Sub*
+drop FatJet*
+drop IsoTrack*
+
+
