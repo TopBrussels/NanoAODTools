@@ -26,13 +26,14 @@ cd CMSSW_9_4_10/src
 cmsenv
 cd TopBrussels/NanoAODTools/StandaloneExamples/
 ```
-#Examples
+# Examples
 ## Intro Examples
 ```bash
 cd Book1
 python CH01.py
 python CH02.py
 python CH03.py
+python CH04.py
 ...
 ```
 #### CH01
@@ -43,6 +44,9 @@ This example demonstrates creating a class that inherits from Module. This class
 
 #### CH03
 Demonstrates the use of wrappers Object and Collection to group raw NanoAOD elements (for example, creating an iterable list of jets, and gaining functions for the four-momentum of a jet). Prints basic kinematic information for muons, electrons, and jets, and sums the four-momentum of them all to print out a pseudo-"event mass."
+
+#### CH04
+Demonstrates jet selection criteria, btagging, and plotting in 1D and 2D, with plots output to histogram file. Loads files from a txt list saved directly from Data Aggregation Service.
 
 ## Bigger Examples
 ```bash
