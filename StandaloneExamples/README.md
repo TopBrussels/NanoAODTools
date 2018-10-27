@@ -15,7 +15,6 @@ cmsrel CMSSW_9_4_10
 cd CMSSW_9_4_10/src
 cmsenv
 git clone https://github.com/cms-nanoAOD/nanoAOD-tools.git NanoAODTools #The postprocessing tools!
-git clone https://github.com/NJManganelli/FourTopNAOD.git FourTopNAOD #this code
 git clone https://github.com/TopBrussels/NanoAODTools TopBrussels/NanoAODTools
 scram b -j10
 ```
