@@ -1,97 +1,148 @@
-#Import Python 3-style division, print function
 from __future__ import (division, print_function)
 
 import ROOT 
 from importlib import import_module
 
 from PhysicsTools.NanoAODTools.postprocessing.framework.postprocessor import PostProcessor 
+from PhysicsTools.NanoAODTools.postprocessing.framework.datamodel import Collection, Object
 from PhysicsTools.NanoAODTools.postprocessing.framework.eventloop import Module
 
-class ExampleModule(Module): #This line defines our class ExampleModule, and in parenthesis, we indicate it Inherits from the Module class we imported above.
+class HistogramMaker(Module): #This line defines our class ExampleModule, and in parenthesis, we indicate it Inherits from the Module class we imported above.
     def __init__(self):
-        self.counting = 0
+        self.writeHistFile=True #Necessary for an output file to be created? 
+        self.counter = 0 #Define this global variable to count events
+        self.EventLimit = 100000 #-1 for no limit, anthing larger chosen here will be the limit of events fully processed
+
+    def beginJob(self,histFile=None,histDirName=None):
+        #beginJob is typically where histograms should be initialized
+        #So we call the default Module's beginJob, passing it the histFile and histDirName first passed to the PostProcessor
+        Module.beginJob(self,histFile,histDirName)
+
+        #Create a 1-D histogram (TH1D) with histogram_name h_jets, and someTitle(title)/nJets(x-axis)/Events(y-axis), 20 bins, Domain 0 to 20
+        #The histogram then has to be 'booked' with the service that will write everything to the output file via self.addObject()
+        self.h_jets = ROOT.TH1D('h_jets', 'someTitle;nJets;Events',   20, 0, 20)
+        self.addObject(self.h_jets)
+        #Repeat for other histograms
+        self.h_fatjets = ROOT.TH1D('h_fatjets', ';nFatJets;Events', 8, 0, 8)
+        self.addObject(self.h_fatjets)
+        self.h_subjets = ROOT.TH1D('h_subjets', ';nSubJets;Events', 16, 0, 16)
+        self.addObject(self.h_subjets)
+        self.h_jet_map = ROOT.TH2F('h_jet_map', ';Jet Eta;Jet Phi', 40, -2.5, 2.5, 20, -3.14, 3.14)
+        self.addObject(self.h_jet_map)
+        self.h_medCSVV2 = ROOT.TH1D('h_medCSVV2', ';Medium CSVV2 btags; Events', 5, 0, 5)
+        self.addObject(self.h_medCSVV2)
+        self.h_medDeepB = ROOT.TH1D('h_medDeepB', ';Medium DeepCSV btags; Events', 5, 0, 5)
+        self.addObject(self.h_medDeepB)
 
     def analyze(self, event):
         """process event, return True (go to next module) or False (fail, go to next event)"""
-        #First N events
-        self.counting += 1 
-        if self.counting > 10:
+        self.counter += 1
+        
+        #Below we 'halt' execution for events past the first N (20 when written) by returning False now 
+        if self.counter > self.EventLimit > -1:
             return False
         
+        ###########################################
+        ###### Basic Attributes of the Event ######
+        ###########################################
+        #Use basic python getattr() method to grab this info, no need for Object or Collection here
         run = getattr(event, "run")
-        evt = getattr(event, "event")
         lumi = getattr(event, "luminosityBlock")
+        evt = getattr(event, "event")
+        #print("\n\nRun: {0:>8d} \tLuminosityBlock: {1:>8d} \tEvent: {2:>8d}".format(run,lumi,evt)) 
 
-        print("Run: {0:>8d} \t LuminosityBlock: {1:>8d} \t Event: {2:>8d}".format(run, lumi, evt) )
+        ###########################################
+        ###### Event Collections and Objects ######
+        ###########################################
+        #Collections are for variable-length objects, easily identified by a nVARIABLE object in the NanoAOD file ("nJet")
+        #Objects are for 1-deep variables, like HLT triggers, where there are many of them, but there is only one boolean value
+        #for each HLT_SomeSpecificTrigger in the event. These are more than just wrappers, providing convenient methods
+        #This will 'work' for anything that has some common name + '_' (like "SV_x" and "SV_y" and "SV_z")
 
-        nEles = getattr(event, "nElectron")
-        nMus = getattr(event, "nMuon")
-        nTaus = getattr(event, "nTau")
-        nJets = getattr(event, "nJet")
-    
-        print("\t Electrons: {0:>3d} \t Muons: {1:>3d} \t Taus: {2:>3d} \t Jets: {3:>3d} \n".format(nEles, nMus, nTaus, nJets) )
+        #Objects:
+        met = Object(event, "MET")
+        PV = Object(event, "PV")
 
+        #Collections:
         electrons = Collection(event, "Electron")
-        photons = Collection(event, "Photon")
         muons = Collection(event, "Muon")
         jets = Collection(event, "Jet")
-        met = Object(event, "MET")
+        fatjets = Collection(event, "FatJet")
+        subjets = Collection(event, "SubJet")
+        
+        nEles = len(electrons)
+        nMus = len(muons)
+        nAK4Jets = len(jets)
+        nAK8Jets = len(fatjets)
+        nAK8SubJets = len(subjets)
 
-        HLT = Object(event, "HLT") 
-        Filters = Object(event, "Flag") 
-        PV = Object(event, "PV")
-        SV = Collection(event, "SV")
-        genParts = Collection(event, "GenPart")
-        genJets = Collection(event, "GenJet")
-        genFatJets = Collection(event, "GenJetAK8")
+        self.h_jets.Fill(nAK4Jets)
+        self.h_fatjets.Fill(nAK8Jets)
+        self.h_subjets.Fill(nAK8SubJets)
 
-        print("PV  X: {0: >5.3f} Y: {1: >5.3f} Z: {2:5.3f} nDoF: {3: >5f} Chi^2: {4: >5.3f}".format(
-            PV.x,PV.y, PV.z, PV.ndof, PV.chi2))
-        if len(SV) > 0:   
-            print("nSV: {0: >3d} SV[0] Decay Length:{1: >5.3f}".format(len(SV), SV[0].dlen ))
-        else:
-            print("nSV: {0: >3d}".format(len(SV)))
-        print("{0:>5s} {1:>10s} {2:>10s} {3:>10s}".format("Muon", "Pt", "Eta", "Phi"))
-        for nm, lep in enumerate(muons) :
-            eventSum += lep.p4()
-            #format_spec ::=  [[fill]align][sign][#][0][width][,][.precision][type]
-            print("{0:*<5d} {1:>10.4f} {2:>+10.3f} {3:>+10.3f}".format(nm+1, lep.pt, lep.eta, lep.phi))
-        print("{0:>5s} {1:>10s} {2:>10s} {3:>10s}".format("Electron", "Pt", "Eta", "Phi"))
-        for ne, lep in enumerate(electrons) :
-            eventSum += lep.p4()
-            print("{0:*^5d} {1:>10.4f} {2:> 10.3f} {3:> 10.3f}".format(ne+1, lep.pt, lep.eta, lep.phi))
-        #for j in filter(self.jetSel,jets):
-        print("{0:>5s} {1:>10s} {2:>10s} {3:>10s}".format("Jet", "Pt", "Eta", "Phi"))
-        for nj, j in enumerate(jets):
-            eventSum += j.p4()
-            print("{0: >5d} {1:>10.4f} {2:>-10.3f} {3:>-10.3f}".format(nj+1, j.pt, j.eta, j.phi))
-        #for nt, trig in enumerate(triggers):
-        #    if(nt < 5): print("TypeName: " + trig.GetTypeName())
-        #idea: create list of names for triggers, then check bits with "triggers.name for name in names"
-        #Use getattr(triggers, variablename) to access!
-        passTrig=["PFMETNoMu90_PFMHTNoMu90_IDTight"]
-        for trig in passTrig:
-            print("HLT_" + str(trig) + " Trigger: " + str(getattr(HLT, trig)) )
-        passFilter=["HBHENoiseFilter", "HBHENoiseIsoFilter", "EcalDeadCellTriggerPrimitiveFilter", 
-                    "globalSuperTightHalo2016Filter", "goodVertices", "METFilters"]
-        for fltr in passFilter:
-            print("Flag_" + str(fltr) + " Filter: " + str(getattr(Filters, fltr)))
-        print("Event Mass: {:<10.4f}\n".format(eventSum.M()))
+        nMedCSVV2 = 0
+        nMedDeepB = 0
+
+        for jet in jets:
+            #Check jet passes 2017 Tight Jet ID https://twiki.cern.ch/twiki/bin/view/CMS/JetID13TeVRun2017
+            if jet.jetId < 2:
+                continue
+            # Minimum 30GeV Pt on the jets
+            if jet.pt < 30:
+                continue
+            # Only look at jets within |eta| < 2.4
+            if abs(jet.eta) > 2.4:
+                continue
+            # Fill 2D histo
+            self.h_jet_map.Fill(jet.eta, jet.phi)
+
+            #Count b-tagged jets with two algos at the medium working point
+            #https://twiki.cern.ch/twiki/bin/viewauth/CMS/BtagRecommendation94X
+            if jet.btagCSVV2 > 0.8838:
+                nMedCSVV2 += 1
+            if jet.btagDeepB > 0.4941:
+                nMedDeepB += 1
+
+        self.h_medCSVV2.Fill(nMedCSVV2)
+        self.h_medDeepB.Fill(nMedDeepB)
+
         return True
 
-#Try commenting the first one out and uncommenting the skim made in CH01
-files=["root://cms-xrd-global.cern.ch//store/mc/RunIIFall17NanoAOD/TTJets_SingleLeptFromT_TuneCP5_13TeV-madgraphMLM-pythia8/NANOAODSIM/PU2017_12Apr2018_94X_mc2017_realistic_v14-v1/00000/06CC0D9B-4244-E811-8B62-485B39897212.root"]
 #files=["06CC0D9B-4244-E811-8B62-485B39897212_CH01-Skim.root"]
+filePrefix = "root://cms-xrd-global.cern.ch/"
+files=[]
+#Open the text list of files as read-only ("r" option), use as pairs to add proper postfix to output file
+inputList =  open("../Infiles/TTJets_SingleLeptFromT_TuneCP5_13TeV-madgraphMLM-pythia8.txt", "r") # tt + jets MC
+thePostFix = "TTJets_SL"
+#inputList =  open("../Infiles/TTTT_TuneCP5_13TeV-amcatnlo-pythia8.txt", "r") # tttt MC
+#thePostFix = "TTTT"
+#inputList =  open("../Infiles/TTTT_TuneCP5_PSweights_13TeV-amcatnlo-pythia8.txt", "r") # tttt MC PSWeights
+#thePostFix = "TTTT_PSWeights"
+#inputList =  open("../Infiles/WJetsToLNu_TuneCP5_13TeV-madgraphMLM-pythia8.txt", "r") # W (to Lep + Nu) + jets
+#thePostFix = "WJetsToLNu"
 
-#Create a postprocessor, passing it the necessary and optional parameters
-#This time, we pass it our ExampleModule() in the modules list
-p2=PostProcessor(".", #The output Directory and files list must appear in the same places every time
-                files,
-                jsonInput={1 : [[10000, 10010]]}, #Named= options can be moved around
-                cut="nMuon > 0 && nJet > 5",
-                modules=[ExampleModule()],
-                noOut=True #We use the option noOut to prevent the PostProcessor from writing out the NanoAOD file
-                #justcount=True,
-                )
+for line in inputList:
+    #.replace('\n','') protects against new line characters at end of filenames, use just str(line) if problem appears
+    files.append(filePrefix + str(line).replace('\n','') )
 
-p2.run()
+#for file in files: 
+#    print(file)
+
+#Only take first file in extensive list:
+onefile = [files[0]]
+print("Opening a single file: " + str(onefile) )
+
+p99=PostProcessor(".",
+                  #files,
+                  onefile,
+                  cut="nJet > 3 && nFatJet > 0",
+                  modules=[HistogramMaker()],
+                  jsonInput=None,
+                  noOut=True,
+                  justcount=False,
+                  postfix=thePostFix,
+                  histFileName="OutHistoMaker.root",
+                  histDirName="plots", 
+                  )
+
+p99.run()
