@@ -35,3 +35,13 @@ make
 
 ```
 
+# NanoAOD Examples
+```
+cmsrel CMSSW_9_4_10
+cd CMSSW_9_4_10/src
+cmsenv
+git clone https://github.com/cms-nanoAOD/nanoAOD-tools.git PhysicsTools/NanoAODTools #official tools
+git clone https://github.com/TopBrussels/NanoAODTools TopBrussels/NanoAODTools
+scram b -j10
+cd TopBrussels/NanoAODTools/StandaloneExamples/Book1
+'''
