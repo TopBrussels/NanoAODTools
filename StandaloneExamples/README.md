@@ -14,7 +14,7 @@ source $VO_CMS_SW_DIR/cmsset_default.sh	   #T2_BE MX Machines
 cmsrel CMSSW_9_4_10
 cd CMSSW_9_4_10/src
 cmsenv
-git clone https://github.com/cms-nanoAOD/nanoAOD-tools.git NanoAODTools #The postprocessing tools!
+git clone https://github.com/cms-nanoAOD/nanoAOD-tools.git PhysicsTools/NanoAODTools #The postprocessing tools!
 git clone https://github.com/TopBrussels/NanoAODTools TopBrussels/NanoAODTools
 scram b -j10
 ```
